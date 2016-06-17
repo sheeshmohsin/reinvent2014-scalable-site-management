@@ -95,15 +95,38 @@ class Operation(object):
             self.post_deployment_hooks.append(self._add_instance_to_elb)
 
         all_instances = self._make_api_call('opsworks', 'describe_instances', LayerId=self.layer_id)
-        for each in all_instances['Instances']:
-            if each['Status'] != 'online':
-                continue
+        if len(instances['Instances']) < 2:
+            for each in all_instances['Instances']:
+                if each['Status'] != 'online':
+                    continue
 
-            hostname = each['Hostname']
-            instance_id = each['InstanceId']
-            ec2_instance_id = each['Ec2InstanceId']
+                hostname = each['Hostname']
+                instance_id = each['InstanceId']
+                ec2_instance_id = each['Ec2InstanceId']
 
-            self._deploy_to(InstanceIds=[instance_id], Name=hostname, Comment=comment, LoadBalancerName=load_balancer_name, Ec2InstanceId=ec2_instance_id)
+                self._deploy_to(InstanceIds=[instance_id], Name=hostname, Comment=comment, LoadBalancerName=load_balancer_name, Ec2InstanceId=ec2_instance_id)
+        else:
+            l = all_instances['Instances']
+            for i in range(0, len(l), 2):
+                if l[i]['Status'] != 'online':
+                    continue
+
+                hostname = l[i]['Hostname']
+                instance_id = l[i]['InstanceId']
+                ec2_instance_id = l[i]['Ec2InstanceId']
+
+                self._deploy_to(InstanceIds=[instance_id], Name=hostname, Comment=comment, LoadBalancerName=load_balancer_name, Ec2InstanceId=ec2_instance_id)
+                try:
+                    if l[i + 1]['Status'] != 'online':
+                        continue
+
+                    hostname = l[i + 1]['Hostname']
+                    instance_id = l[i + 1]['InstanceId']
+                    ec2_instance_id = l[i + 1]['Ec2InstanceId']
+
+                    self._deploy_to(InstanceIds=[instance_id], Name=hostname, Comment=comment, LoadBalancerName=load_balancer_name, Ec2InstanceId=ec2_instance_id)
+                except IndexError:
+                    pass
 
     def instances_at_once(self, host_names, comment):
         all_instances = self._make_api_call('opsworks', 'describe_instances', StackId=self.stack_id)
